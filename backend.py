@@ -82,7 +82,7 @@ def emit_or_collect(text: str, stream: bool, on_token) -> str:
 def call_openai(
     messages: List[Dict[str, str]],
     *,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-4o",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -131,7 +131,7 @@ def call_openai(
 def call_anthropic(
     messages: List[Dict[str, str]],
     *,
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str = "claude-sonnet-4-5",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -153,18 +153,16 @@ def call_anthropic(
 
     try:
         response = client.messages.create(
-            system=DEFAULT_SYSTEM_PROMPT,
             model=model,
-            max_tokens=1024,
-            temperature=temperature,
+            max_tokens=1000,
             messages=prepared,
         )
-        parts = [
-            block.text
-            for block in getattr(response, "content", [])
-            if getattr(block, "type", "") == "text"
-        ]
-        text = "\n\n".join(parts).strip() or "Claude returned an empty response."
+        text_chunks: List[str] = []
+        for block in response.content:
+            if getattr(block, "type", None) == "text" and getattr(block, "text", None):
+                text_chunks.append(block.text)
+
+        text = "\n\n".join(text_chunks) if text_chunks else "Claude returned no text blocks."
         return emit_or_collect(text, stream, on_token)
     except Exception as exc:
         logger.exception("Anthropic call failed: %s", exc)
@@ -174,7 +172,7 @@ def call_anthropic(
 def call_gemini(
     messages: List[Dict[str, str]],
     *,
-    model: str = "gemini-1.5-pro-002",
+    model: str = "gemini-1.5-pro-latest",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -190,19 +188,29 @@ def call_gemini(
     genai.configure(api_key=api_key)
     prompt = "\n".join(f"{msg['role'].title()}: {msg['content']}" for msg in messages)
     try:
-        model_client = genai.GenerativeModel(model_name=model)
+        model_client = genai.GenerativeModel(f"models/{model}")
         response = model_client.generate_content(
             prompt,
-            generation_config={"temperature": temperature, "max_output_tokens": 2048},
+            generation_config={"temperature": temperature, "max_output_tokens": 8192},
             request_options={"timeout": API_TIMEOUT},
         )
+
+        candidates = getattr(response, "candidates", [])
+        if not candidates:
+            finish_reason = getattr(response, "prompt_feedback", None)
+            return f"Gemini: No candidates returned. Feedback: {finish_reason}"
+
         parts: List[str] = []
-        for candidate in getattr(response, "candidates", []):
-            for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
-                text = getattr(part, "text", "")
-                if text:
-                    parts.append(text.strip())
-        text = "\n\n".join(parts) or "Gemini did not return text."
+        for candidate in candidates:
+            content = getattr(candidate, "content", None)
+            if not content:
+                continue
+            for part in getattr(content, "parts", []) or []:
+                snippet = getattr(part, "text", None)
+                if snippet:
+                    parts.append(snippet.strip())
+
+        text = "\n\n".join(parts) if parts else f"Gemini returned empty response. Candidates: {len(candidates)}"
         return emit_or_collect(text, stream, on_token)
     except Exception as exc:
         logger.exception("Gemini call failed: %s", exc)
@@ -212,20 +220,21 @@ def call_gemini(
 def call_qwen(
     messages: List[Dict[str, str]],
     *,
-    model: str = "qwen2.5-72b-instruct",
+    model: str = "qwen-plus",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
 ) -> str:
-    api_key = _secret("QWEN_API_KEY")
+    api_key = _secret("DASHSCOPE_API_KEY")
     if not api_key:
-        return "Qwen model unavailable — add QWEN_API_KEY to secrets."
+        return "Qwen model unavailable — add DASHSCOPE_API_KEY to secrets."
     try:
         from openai import OpenAI
     except ImportError:
         return "OpenAI SDK required for Qwen compatible calls."
 
-    client = OpenAI(api_key=api_key, base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    base_url = st.secrets.get("DASHSCOPE_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    client = OpenAI(api_key=api_key, base_url=base_url)
     prepared = _with_system_prompt(messages)
     try:
         if stream and on_token:
@@ -248,9 +257,23 @@ def call_qwen(
             model=model,
             messages=prepared,
             temperature=temperature,
+            max_tokens=512,
             timeout=API_TIMEOUT,
         )
-        text = resp.choices[0].message.content or ""
+
+        choices = getattr(resp, "choices", None) or []
+        if not choices:
+            return "Qwen returned no choices."
+
+        message = getattr(choices[0], "message", None)
+        content = ""
+        if isinstance(message, dict):
+            content = message.get("content") or ""
+        else:
+            content = getattr(message, "content", "") or ""
+
+        content = content.strip()
+        text = content or "Qwen returned an empty response."
         return emit_or_collect(text, stream, on_token)
     except Exception as exc:
         logger.exception("Qwen call failed: %s", exc)
@@ -260,7 +283,7 @@ def call_qwen(
 def call_groq(
     messages: List[Dict[str, str]],
     *,
-    model: str = "llama3-70b-8192",
+    model: str = "llama-3.3-70b-versatile",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -291,12 +314,26 @@ def call_groq(
                     on_token(delta)
             return "".join(collected)
 
-        resp = client.chat.completions.create(
+        completion = client.chat.completions.create(
             model=model,
             messages=prepared,
             temperature=temperature,
+            max_tokens=512,
         )
-        text = resp.choices[0].message.content or ""
+
+        choices = getattr(completion, "choices", None) or []
+        if not choices:
+            return "Groq returned no choices."
+
+        message = getattr(choices[0], "message", None)
+        content = ""
+        if isinstance(message, dict):
+            content = message.get("content") or ""
+        else:
+            content = getattr(message, "content", "") or ""
+
+        content = content.strip()
+        text = content or "Groq returned an empty response."
         return emit_or_collect(text, stream, on_token)
     except Exception as exc:
         logger.exception("Groq call failed: %s", exc)
@@ -306,7 +343,7 @@ def call_groq(
 def call_deepseek(
     messages: List[Dict[str, str]],
     *,
-    model: str = "deepseek-chat",
+    model: str = "deepseek-reasoner",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -318,6 +355,7 @@ def call_deepseek(
         "model": model,
         "messages": _with_system_prompt(messages),
         "temperature": temperature,
+        "max_tokens": 512,
         "stream": stream and bool(on_token),
     }
     headers = {
@@ -360,46 +398,37 @@ def call_deepseek(
 
 
 MODEL_REGISTRY: Dict[str, ProviderConfig] = {
-    "openai-gpt-4.1-mini": ProviderConfig(
-        key="openai-gpt-4.1-mini",
-        label="OpenAI · GPT-4.1-mini",
+    "openai-gpt-4o": ProviderConfig(
+        key="openai-gpt-4o",
+        label="OpenAI · GPT-4o",
         provider="openai",
-        model="gpt-4.1-mini",
-        secret="OPENAI_API_KEY",
-        handler=call_openai,
-        supports_stream=True,
-    ),
-    "openai-gpt-4.1": ProviderConfig(
-        key="openai-gpt-4.1",
-        label="OpenAI · GPT-4.1",
-        provider="openai",
-        model="gpt-4.1",
+        model="gpt-4o",
         secret="OPENAI_API_KEY",
         handler=call_openai,
         supports_stream=True,
     ),
     "anthropic-claude": ProviderConfig(
         key="anthropic-claude",
-        label="Anthropic · Claude 3.5 Sonnet",
+        label="Anthropic · Claude Sonnet 4.5",
         provider="anthropic",
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-4-5",
         secret="ANTHROPIC_API_KEY",
         handler=call_anthropic,
     ),
     "gemini-1.5-pro": ProviderConfig(
         key="gemini-1.5-pro",
-        label="Google · Gemini 1.5 Pro",
+        label="Google · Gemini 1.5 Pro Latest",
         provider="gemini",
-        model="gemini-1.5-pro-002",
+        model="gemini-1.5-pro-latest",
         secret="GEMINI_API_KEY",
         handler=call_gemini,
     ),
-    "qwen-72b": ProviderConfig(
-        key="qwen-72b",
-        label="Qwen 2.5 · 72B",
+    "qwen-plus": ProviderConfig(
+        key="qwen-plus",
+        label="Qwen · Plus",
         provider="qwen",
-        model="qwen2.5-72b-instruct",
-        secret="QWEN_API_KEY",
+        model="qwen-plus",
+        secret="DASHSCOPE_API_KEY",
         handler=call_qwen,
         supports_stream=True,
     ),
@@ -412,11 +441,11 @@ MODEL_REGISTRY: Dict[str, ProviderConfig] = {
         handler=call_groq,
         supports_stream=True,
     ),
-    "deepseek-r1": ProviderConfig(
-        key="deepseek-r1",
-        label="DeepSeek · R1",
+    "deepseek-reasoner": ProviderConfig(
+        key="deepseek-reasoner",
+        label="DeepSeek · Reasoner",
         provider="deepseek",
-        model="deepseek-chat",
+        model="deepseek-reasoner",
         secret="DEEPSEEK_API_KEY",
         handler=call_deepseek,
         supports_stream=True,
