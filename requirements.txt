@@ -10,5 +10,19 @@ anthropic==0.74.1
 google-generativeai==0.8.5
 groq==0.36.0
 
+# Payment Processing
+stripe==11.4.1
+
 # Utilities
 python-dotenv==1.2.1
+
+# Optional: Analytics & Monitoring
+# pandas==2.2.3  # For analytics dashboard
+# plotly==5.24.1  # For charts
+
+# Optional: Email Support
+# sendgrid==6.11.0  # For sending emails
+
+# Optional: Advanced Security
+# bcrypt==4.2.1  # For password hashing (using hashlib instead)
+# pyjwt==2.10.1  # For JWT tokens

@@ -473,6 +473,18 @@ with st.sidebar:
     )
 
     st.divider()
+    
+    # Admin section (only for admins)
+    if "user" in st.session_state:
+        try:
+            from admin.admin_auth import is_admin
+            if is_admin(st.session_state.user):
+                st.markdown("### 🔐 Admin")
+                if st.button("📊 Admin Dashboard", use_container_width=True, type="primary"):
+                    st.switch_page("pages/admin_dashboard.py")
+                st.divider()
+        except ImportError:
+            pass  # Admin module not available yet
 
     # Logout
     if st.button("🚪 Sign Out", use_container_width=True, type="primary"):
