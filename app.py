@@ -343,6 +343,7 @@ with st.sidebar:
     # Initialize variables
     model_a_key = None
     model_b_key = None
+    selected_model_key = None
 
     if st.session_state["comparison_mode"]:
         st.markdown("#### Model A")
@@ -375,9 +376,8 @@ with st.sidebar:
                 key="model_b_select"
             )
             model_b_key = next(item["key"] for item in enabled_options_b if item["label"] == model_b_label)
-
-        selected_model_key = model_a_key  # Default for single mode fallback
     else:
+        # SINGLE MODEL MODE
         selected_idx = next(
             (idx for idx, item in enumerate(model_options) if item["enabled"]),
             0,
@@ -526,7 +526,7 @@ if message_to_send:
         st.markdown(message_to_send)
 
     # COMPARISON MODE
-    if st.session_state.get("comparison_mode") and model_b_key:
+    if st.session_state.get("comparison_mode") and model_a_key and model_b_key:
         config_a = next((cfg for cfg in models if cfg.key == model_a_key), None)
         config_b = next((cfg for cfg in models if cfg.key == model_b_key), None)
 
