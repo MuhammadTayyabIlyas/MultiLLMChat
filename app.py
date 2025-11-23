@@ -250,9 +250,46 @@ def _inject_custom_css(dark_mode: bool) -> None:
             text-decoration: underline;
         }}
 
+        /* Sidebar Width Control */
+        section[data-testid="stSidebar"] {{
+            width: 280px !important;
+            min-width: 280px !important;
+            max-width: 280px !important;
+            padding: 1rem 1.5rem !important;
+        }}
+
+        @media (min-width: 768px) {{
+            section[data-testid="stSidebar"] {{
+                width: 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+            }}
+        }}
+
+        /* Sidebar header styling */
+        section[data-testid="stSidebar"] > div:first-child {{
+            padding-top: 1rem !important;
+        }}
+
         /* Comparison Mode Styling */
         .stColumn > div {{
             padding: 0.5rem;
+        }}
+
+        /* Main content area adjustment */
+        .main {{
+            flex: 1 1 0% !important;
+            max-width: calc(100% - 280px) !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+        }}
+
+        @media (max-width: 768px) {{
+            .main {{
+                max-width: 100% !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }}
         }}
 
         .stColumn h3 {{
