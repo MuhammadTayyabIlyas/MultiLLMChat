@@ -21,6 +21,13 @@ from auth.users import user_manager
 from auth.usage_limits import check_usage_limit, record_user_usage, show_usage_widget
 from premium_features import render_premium_sidebar
 
+# Import admin check (will be used for showing admin section)
+try:
+    from admin.admin_auth import is_admin
+except ImportError:
+    def is_admin(user):
+        return False
+
 
 init_db()
 st.set_page_config(
@@ -536,17 +543,12 @@ with st.sidebar:
 
     st.divider()
     
-    # Admin section (only for admins)
-    if "user" in st.session_state:
-        try:
-            from admin.admin_auth import is_admin
-            if is_admin(st.session_state.user):
-                st.markdown("### 🔐 Admin")
-                if st.button("📊 Admin Dashboard", use_container_width=True, type="primary"):
-                    st.switch_page("pages/admin_dashboard.py")
-                st.divider()
-        except ImportError:
-            pass  # Admin module not available yet
+    # Admin section (only for admins - will not show errors if not available)
+    if st.session_state.get("user") and is_admin(st.session_state.user):
+        st.markdown("### 🔐 Admin")
+        if st.button("📊 Admin Dashboard", use_container_width=True, type="primary"):
+            st.switch_page("pages/admin_dashboard.py")
+        st.divider()
 
     # Logout
     if st.button("🚪 Sign Out", use_container_width=True, type="primary"):
