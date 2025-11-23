@@ -4,7 +4,7 @@ from typing import List
 
 import streamlit as st
 
-from backend import RateLimitError, available_models, call_model
+from backend import RateLimitError, available_models, call_model, evaluate_responses
 from db import (
     clear_messages,
     export_messages,
@@ -209,6 +209,27 @@ def _inject_custom_css(dark_mode: bool) -> None:
             text-decoration: underline;
         }}
 
+        /* Comparison Mode Styling */
+        .stColumn > div {{
+            padding: 0.5rem;
+        }}
+
+        .stColumn h3 {{
+            color: {text_color};
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background: {assistant_color};
+            border-radius: 0.5rem;
+            border-left: 3px solid #10A37F;
+        }}
+
+        /* Evaluation Box */
+        .stAlert {{
+            border-radius: 0.5rem;
+            border-left: 4px solid #10A37F;
+        }}
+
         /* Hide Streamlit branding */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
@@ -300,7 +321,7 @@ with st.sidebar:
     for idx, config in enumerate(models):
         has_secret = config.secret in st.secrets
         label = config.label if has_secret else f"{config.label} (🔒 locked)"
-        model_options.append({"label": label, "key": config.key, "enabled": has_secret})
+        model_options.append({"label": label, "key": config.key, "enabled": has_secret, "provider": config.provider})
         if has_secret and default_index == 0:
             default_index = idx
 
@@ -308,20 +329,65 @@ with st.sidebar:
         st.error("No models configured. Add at least one API key to Streamlit secrets.")
         st.stop()
 
-    selected_idx = next(
-        (idx for idx, item in enumerate(model_options) if item["enabled"]),
-        0,
+    # Comparison Mode Toggle
+    if "comparison_mode" not in st.session_state:
+        st.session_state["comparison_mode"] = False
+
+    st.session_state["comparison_mode"] = st.toggle(
+        "⚖️ Comparison Mode",
+        value=st.session_state["comparison_mode"],
+        key="comparison-toggle",
+        help="Compare two different AI models side-by-side"
     )
 
-    selected_model_label = st.selectbox(
-        "🤖 Select AI Model",
-        [item["label"] for item in model_options],
-        index=selected_idx,
-        help="Choose from 11 different AI providers"
-    )
-    selected_model_key = model_options[
-        [item["label"] for item in model_options].index(selected_model_label)
-    ]["key"]
+    if st.session_state["comparison_mode"]:
+        st.markdown("#### Model A")
+        enabled_options_a = [item for item in model_options if item["enabled"]]
+        if not enabled_options_a:
+            st.error("No models available")
+            st.stop()
+
+        model_a_label = st.selectbox(
+            "First Model",
+            [item["label"] for item in enabled_options_a],
+            index=0,
+            key="model_a_select"
+        )
+        model_a_key = next(item["key"] for item in enabled_options_a if item["label"] == model_a_label)
+        model_a_provider = next(item["provider"] for item in enabled_options_a if item["label"] == model_a_label)
+
+        st.markdown("#### Model B")
+        # Filter out Model A's provider to prevent same provider comparison
+        enabled_options_b = [item for item in enabled_options_a if item["provider"] != model_a_provider]
+
+        if not enabled_options_b:
+            st.warning("⚠️ Please enable at least one model from a different provider")
+            model_b_key = None
+        else:
+            model_b_label = st.selectbox(
+                "Second Model",
+                [item["label"] for item in enabled_options_b],
+                index=0,
+                key="model_b_select"
+            )
+            model_b_key = next(item["key"] for item in enabled_options_b if item["label"] == model_b_label)
+
+        selected_model_key = model_a_key  # Default for single mode fallback
+    else:
+        selected_idx = next(
+            (idx for idx, item in enumerate(model_options) if item["enabled"]),
+            0,
+        )
+
+        selected_model_label = st.selectbox(
+            "🤖 Select AI Model",
+            [item["label"] for item in model_options],
+            index=selected_idx,
+            help="Choose from different AI providers"
+        )
+        selected_model_key = model_options[
+            [item["label"] for item in model_options].index(selected_model_label)
+        ]["key"]
 
     st.divider()
 
@@ -448,12 +514,6 @@ if message_to_send:
         st.warning("Cannot send an empty message.")
         st.stop()
 
-    active_model_key = forced_model_key
-    selected_config = next((cfg for cfg in models if cfg.key == active_model_key), None)
-    if not selected_config:
-        st.error("Model not found.")
-        st.stop()
-
     chat_history_for_llm = [
         {"role": row["role"], "content": row["content"]} for row in history
     ] + [{"role": "user", "content": message_to_send}]
@@ -461,51 +521,136 @@ if message_to_send:
     with st.chat_message("user", avatar="🧑"):
         st.markdown(message_to_send)
 
-    assistant_placeholder = st.chat_message("assistant", avatar="🤖")
-    stream_area = assistant_placeholder.empty()
-    collected_chunks: List[str] = []
+    # COMPARISON MODE
+    if st.session_state.get("comparison_mode") and model_b_key:
+        config_a = next((cfg for cfg in models if cfg.key == model_a_key), None)
+        config_b = next((cfg for cfg in models if cfg.key == model_b_key), None)
 
-    def on_token(chunk: str) -> None:
-        collected_chunks.append(chunk)
-        stream_area.markdown("".join(collected_chunks))
+        if not config_a or not config_b:
+            st.error("One or both models not found.")
+            st.stop()
 
-    try:
-        response_text = call_model(
-            active_model_key,
-            chat_history_for_llm,
-            session_id=session_id,
-            stream=st.session_state["stream_response"],
-            on_token=on_token if st.session_state["stream_response"] else None,
-        )
-    except RateLimitError as err:
-        st.error(str(err))
-        st.session_state["retry_payload"] = {
-            "prompt": message_to_send,
-            "model_key": active_model_key,
-        }
-        st.stop()
+        # Side-by-side columns
+        col1, col2 = st.columns(2)
 
-    if not st.session_state["stream_response"]:
-        stream_area.markdown(response_text)
+        with col1:
+            st.markdown(f"### 🤖 {config_a.label}")
+            placeholder_a = st.empty()
+            collected_a: List[str] = []
 
-    timestamp = utc_now_iso()
-    save_message(session_id, "user", message_to_send, selected_config.label, timestamp)
+            def on_token_a(chunk: str) -> None:
+                collected_a.append(chunk)
+                placeholder_a.markdown("".join(collected_a))
 
-    if _is_failure(response_text):
-        st.warning(response_text)
-        st.session_state["retry_payload"] = {
-            "prompt": message_to_send,
-            "model_key": active_model_key,
-        }
+        with col2:
+            st.markdown(f"### 🤖 {config_b.label}")
+            placeholder_b = st.empty()
+            collected_b: List[str] = []
+
+            def on_token_b(chunk: str) -> None:
+                collected_b.append(chunk)
+                placeholder_b.markdown("".join(collected_b))
+
+        # Call both models
+        try:
+            response_a = call_model(
+                model_a_key,
+                chat_history_for_llm,
+                session_id=session_id,
+                stream=st.session_state["stream_response"],
+                on_token=on_token_a if st.session_state["stream_response"] else None,
+            )
+            response_b = call_model(
+                model_b_key,
+                chat_history_for_llm,
+                session_id=session_id,
+                stream=st.session_state["stream_response"],
+                on_token=on_token_b if st.session_state["stream_response"] else None,
+            )
+        except RateLimitError as err:
+            st.error(str(err))
+            st.stop()
+
+        if not st.session_state["stream_response"]:
+            placeholder_a.markdown(response_a)
+            placeholder_b.markdown(response_b)
+
+        # GPT-4o-mini Evaluation
+        st.markdown("---")
+        st.markdown("### 🎯 AI Evaluation")
+        with st.spinner("Evaluating responses..."):
+            evaluation = evaluate_responses(
+                message_to_send,
+                response_a,
+                response_b,
+                config_a.label,
+                config_b.label,
+            )
+
+        st.info(f"**{evaluation}**")
+
+        # Save messages
+        timestamp = utc_now_iso()
+        save_message(session_id, "user", message_to_send, "Comparison", timestamp)
+
+        comparison_result = f"**{config_a.label}:**\n{response_a}\n\n**{config_b.label}:**\n{response_b}\n\n**Evaluation:** {evaluation}"
+        save_message(session_id, "assistant", comparison_result, "Comparison", utc_now_iso())
+
+        st.rerun()
+
+    # SINGLE MODEL MODE
     else:
-        save_message(
-            session_id,
-            "assistant",
-            response_text,
-            selected_config.label,
-            utc_now_iso(),
-        )
-        st.session_state["retry_payload"] = None
+        active_model_key = forced_model_key
+        selected_config = next((cfg for cfg in models if cfg.key == active_model_key), None)
+        if not selected_config:
+            st.error("Model not found.")
+            st.stop()
 
-    st.rerun()
+        assistant_placeholder = st.chat_message("assistant", avatar="🤖")
+        stream_area = assistant_placeholder.empty()
+        collected_chunks: List[str] = []
+
+        def on_token(chunk: str) -> None:
+            collected_chunks.append(chunk)
+            stream_area.markdown("".join(collected_chunks))
+
+        try:
+            response_text = call_model(
+                active_model_key,
+                chat_history_for_llm,
+                session_id=session_id,
+                stream=st.session_state["stream_response"],
+                on_token=on_token if st.session_state["stream_response"] else None,
+            )
+        except RateLimitError as err:
+            st.error(str(err))
+            st.session_state["retry_payload"] = {
+                "prompt": message_to_send,
+                "model_key": active_model_key,
+            }
+            st.stop()
+
+        if not st.session_state["stream_response"]:
+            stream_area.markdown(response_text)
+
+        timestamp = utc_now_iso()
+        save_message(session_id, "user", message_to_send, selected_config.label, timestamp)
+
+        if _is_failure(response_text):
+            st.warning(response_text)
+            st.session_state["retry_payload"] = {
+                "prompt": message_to_send,
+                "model_key": active_model_key,
+            }
+        else:
+            save_message(
+                session_id,
+                "assistant",
+                response_text,
+                selected_config.label,
+                utc_now_iso(),
+            )
+            st.session_state["retry_payload"] = None
+
+        st.rerun()
 

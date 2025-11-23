@@ -500,3 +500,51 @@ def call_model(
         on_token=on_token,
     )
 
+
+def evaluate_responses(
+    prompt: str,
+    response_a: str,
+    response_b: str,
+    model_a_name: str,
+    model_b_name: str,
+) -> str:
+    """
+    Uses GPT-5 nano to evaluate which response is better.
+    Returns a brief evaluation (max 30 words).
+    """
+    api_key = _secret("OPENAI_API_KEY")
+    if not api_key:
+        return "Evaluator unavailable — missing OPENAI_API_KEY."
+
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return "Evaluator unavailable — OpenAI SDK missing."
+
+    client = OpenAI(api_key=api_key)
+
+    evaluation_prompt = f"""Compare these two responses to the question: "{prompt}"
+
+Response 1 ({model_a_name}):
+{response_a}
+
+Response 2 ({model_b_name}):
+{response_b}
+
+Which response is better? Reply ONLY with: "Answer 1 is better: [reason]" or "Answer 2 is better: [reason]". Keep reason under 20 words."""
+
+    try:
+        response = client.responses.create(
+            model="gpt-5-nano",
+            input=evaluation_prompt
+        )
+        evaluation = response.output_text or "Unable to evaluate."
+        # Ensure it's under 30 words
+        words = evaluation.strip().split()
+        if len(words) > 30:
+            evaluation = " ".join(words[:30]) + "..."
+        return evaluation
+    except Exception as exc:
+        logger.exception("Evaluation failed: %s", exc)
+        return "Evaluation error — try again."
+
