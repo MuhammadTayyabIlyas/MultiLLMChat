@@ -340,6 +340,10 @@ with st.sidebar:
         help="Compare two different AI models side-by-side"
     )
 
+    # Initialize variables
+    model_a_key = None
+    model_b_key = None
+
     if st.session_state["comparison_mode"]:
         st.markdown("#### Model A")
         enabled_options_a = [item for item in model_options if item["enabled"]]
