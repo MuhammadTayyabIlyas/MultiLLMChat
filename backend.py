@@ -191,7 +191,7 @@ def call_gemini(
         model_client = genai.GenerativeModel(f"models/{model}")
         response = model_client.generate_content(
             prompt,
-            generation_config={"temperature": temperature, "max_output_tokens": 8192},
+            generation_config={"temperature": temperature, "max_output_tokens": 32000},
             request_options={"timeout": API_TIMEOUT},
         )
 
