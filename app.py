@@ -680,12 +680,14 @@ if message_to_send:
             color_eval = "#FF6B6B"  # Red for Evaluator
             bg_color = "#1E1E1E"
             text_color = "#ECECF1"
+            border_color = "#404040"
         else:
             color_a = "#0D8A6A"
             color_b = "#4A4FCC"
             color_eval = "#CC5555"
             bg_color = "#FFFFFF"
             text_color = "#1F1F1F"
+            border_color = "#E5E5E5"
 
         st.markdown(f"""
         <div style="margin: 1rem 0;">
