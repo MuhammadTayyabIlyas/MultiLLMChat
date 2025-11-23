@@ -340,8 +340,6 @@ with st.sidebar:
         help="Enable real-time response streaming"
     )
 
-_inject_custom_css(st.session_state["dark_mode"])
-
     st.divider()
 
     # Conversation Management
@@ -405,6 +403,8 @@ _inject_custom_css(st.session_state["dark_mode"])
         """,
         unsafe_allow_html=True,
     )
+
+_inject_custom_css(st.session_state["dark_mode"])
 
 history = load_messages(session_id)
 
