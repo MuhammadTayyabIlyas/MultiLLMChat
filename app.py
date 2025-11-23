@@ -51,28 +51,15 @@ def _inject_custom_css(dark_mode: bool) -> None:
             padding: 0;
         }}
 
-        /* Sidebar Styling - Force Always Visible */
+        /* Sidebar Styling */
         section[data-testid="stSidebar"] {{
             background: {panel_bg};
             border-right: 1px solid {border_color};
             padding: 2rem 1rem;
-            min-width: 21rem !important;
-            transform: none !important;
         }}
 
         section[data-testid="stSidebar"] .block-container {{
             padding-top: 1rem;
-        }}
-
-        /* Ensure sidebar is never collapsed */
-        section[data-testid="stSidebar"][aria-expanded="false"] {{
-            transform: none !important;
-            margin-left: 0 !important;
-        }}
-
-        /* Hide collapse button */
-        button[kind="header"] {{
-            display: none !important;
         }}
 
         /* Header */
@@ -649,8 +636,6 @@ if message_to_send:
         comparison_result = f"**{config_a.label}:**\n{response_a}\n\n**{config_b.label}:**\n{response_b}\n\n**Evaluation:** {evaluation}"
         save_message(session_id, "assistant", comparison_result, "Comparison", utc_now_iso())
 
-        st.rerun()
-
     # SINGLE MODEL MODE
     else:
         active_model_key = forced_model_key
@@ -704,6 +689,4 @@ if message_to_send:
                 utc_now_iso(),
             )
             st.session_state["retry_payload"] = None
-
-        st.rerun()
 
