@@ -425,19 +425,6 @@ def _require_auth():
                     except Exception as e:
                         st.error(f"Failed: {str(e)}")
     
-    # Backward compatibility - legacy login
-    with st.expander("⚠️ Legacy Login"):
-        password = st.text_input("Legacy Password", type="password", key="legacy_pw")
-        if st.button("Legacy Login") and password == APP_PASSWORD:
-            user_id = secure_session_id()
-            # Create a legacy user with session
-            legacy_user = type('User', (), {
-                'id': user_id, 'email': f'legacy-{user_id[:8]}@app.app',
-                'subscription_tier': 'pro'
-            })()
-            session_manager.create_session(legacy_user)
-            st.rerun()
-    
     return False
 
 
@@ -472,31 +459,31 @@ if "user" in st.session_state:
     with st.sidebar:
         st.markdown("### ⚙️ Settings")
 
-    # Model Selection
-    models = available_models()
-    model_options = []
-    default_index = 0
-    for idx, config in enumerate(models):
-        has_secret = config.secret in st.secrets
-        label = config.label if has_secret else f"{config.label} (🔒 locked)"
-        model_options.append({"label": label, "key": config.key, "enabled": has_secret, "provider": config.provider})
-        if has_secret and default_index == 0:
-            default_index = idx
+        # Model Selection
+        models = available_models()
+        model_options = []
+        default_index = 0
+        for idx, config in enumerate(models):
+            has_secret = config.secret in st.secrets
+            label = config.label if has_secret else f"{config.label} (🔒 locked)"
+            model_options.append({"label": label, "key": config.key, "enabled": has_secret, "provider": config.provider})
+            if has_secret and default_index == 0:
+                default_index = idx
 
-    if not model_options:
-        st.error("No models configured. Add at least one API key to Streamlit secrets.")
-        st.stop()
+        if not model_options:
+            st.error("No models configured. Add at least one API key to Streamlit secrets.")
+            st.stop()
 
-    # Comparison Mode Toggle
-    if "comparison_mode" not in st.session_state:
-        st.session_state["comparison_mode"] = False
+        # Comparison Mode Toggle
+        if "comparison_mode" not in st.session_state:
+            st.session_state["comparison_mode"] = False
 
-    st.session_state["comparison_mode"] = st.toggle(
-        "⚖️ Comparison Mode",
-        value=st.session_state["comparison_mode"],
-        key="comparison-toggle",
-        help="Compare two different AI models side-by-side"
-    )
+        st.session_state["comparison_mode"] = st.toggle(
+            "⚖️ Comparison Mode",
+            value=st.session_state["comparison_mode"],
+            key="comparison-toggle",
+            help="Compare two different AI models side-by-side"
+        )
 
     # Initialize variables
     model_a_key = None
