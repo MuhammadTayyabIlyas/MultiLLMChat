@@ -405,6 +405,7 @@ with st.sidebar:
         selected_model_key = model_options[
             [item["label"] for item in model_options].index(selected_model_label)
         ]["key"]
+        st.session_state.selected_model_key = selected_model_key  # Persist in session state
 
     st.divider()
 
@@ -489,11 +490,15 @@ with st.sidebar:
 
 _inject_custom_css(st.session_state["dark_mode"])
 
+# Ensure selected_model_key is persisted in session state
+if "selected_model_key" not in st.session_state:
+    st.session_state.selected_model_key = None
+
 history = load_messages(session_id)
 
 retry_payload = st.session_state.get("retry_payload")
 message_to_send = None
-forced_model_key = selected_model_key
+forced_model_key = st.session_state.selected_model_key or selected_model_key
 
 # Retry button if needed
 if retry_payload:
