@@ -105,7 +105,7 @@ def _inject_custom_css(dark_mode: bool) -> None:
         }}
 
         .stChatMessage[data-testid*="user"] {{
-            background: linear-gradient(90deg, rgba(16,163,127,0.1), rgba(16,163,127,0.05)) !important;
+            background: linear-gradient(90deg, {user_color}20, {user_color}10) !important;
             border-left: 3px solid {user_color};
         }}
 
@@ -189,7 +189,7 @@ def _inject_custom_css(dark_mode: bool) -> None:
             padding: 0.25rem 0.75rem;
             border-radius: 1rem;
             background: linear-gradient(135deg, #5E63FF, #8891FF);
-            color: white;
+            color: white !important;
             font-size: 0.75rem;
             font-weight: 600;
             margin-right: 0.5rem;
@@ -200,6 +200,10 @@ def _inject_custom_css(dark_mode: bool) -> None:
             color: #8E8EA0;
             font-size: 0.75rem;
             margin-top: 0.5rem;
+        }}
+        
+        .timestamp span {{
+            color: #8E8EA0;
         }}
 
         /* Footer */
@@ -234,13 +238,13 @@ def _inject_custom_css(dark_mode: bool) -> None:
             padding: 0.5rem;
             background: {assistant_color};
             border-radius: 0.5rem;
-            border-left: 3px solid #10A37F;
+            border-left: 3px solid {user_color};
         }}
 
         /* Evaluation Box */
         .stAlert {{
             border-radius: 0.5rem;
-            border-left: 4px solid #10A37F;
+            border-left: 4px solid {user_color};
         }}
 
         /* Hide Streamlit branding but keep header for sidebar toggle */
@@ -416,6 +420,9 @@ with st.sidebar:
         value=st.session_state["dark_mode"],
         key="dark-mode-toggle"
     )
+    
+    # Re-inject CSS after dark mode toggle changes
+    _inject_custom_css(st.session_state["dark_mode"])
 
     st.session_state["stream_response"] = st.toggle(
         "⚡ Streaming",
@@ -487,8 +494,6 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-
-_inject_custom_css(st.session_state["dark_mode"])
 
 # Ensure selected_model_key is persisted in session state
 if "selected_model_key" not in st.session_state:
@@ -613,29 +618,29 @@ if message_to_send:
             <table style="width: 100%; border-collapse: collapse; background: {bg_color}; border-radius: 0.5rem; overflow: hidden;">
                 <thead>
                     <tr style="background: linear-gradient(135deg, {color_a}20, {color_b}20);">
-                        <th style="padding: 1rem; text-align: left; color: {text_color}; font-weight: 600; border-bottom: 2px solid {color_a};">Model</th>
+                        <th style="padding: 1rem; text-align: left; color: {text_color}; font-weight: 600; border-bottom: 2px solid {color_a}; border-right: 1px solid {border_color};">Model</th>
                         <th style="padding: 1rem; text-align: left; color: {text_color}; font-weight: 600; border-bottom: 2px solid {color_b};">Response</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_a}; color: {color_a}; font-weight: 600;">
+                    <tr style="border-bottom: 1px solid {border_color};">
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_a}; color: {color_a}; font-weight: 600; border-right: 1px solid {border_color};">
                             🤖 {config_a.label}
                         </td>
-                        <td style="padding: 1rem; color: {text_color}; border-bottom: 1px solid #404040;">
+                        <td style="padding: 1rem; color: {text_color};">
                             {response_a}
                         </td>
                     </tr>
-                    <tr>
-                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_b}; color: {color_b}; font-weight: 600;">
+                    <tr style="border-bottom: 1px solid {border_color};">
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_b}; color: {color_b}; font-weight: 600; border-right: 1px solid {border_color};">
                             🤖 {config_b.label}
                         </td>
-                        <td style="padding: 1rem; color: {text_color}; border-bottom: 1px solid #404040;">
+                        <td style="padding: 1rem; color: {text_color};">
                             {response_b}
                         </td>
                     </tr>
                     <tr style="background: {color_eval}10;">
-                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_eval}; color: {color_eval}; font-weight: 600;">
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_eval}; color: {color_eval}; font-weight: 600; border-right: 1px solid {border_color};">
                             🎯 GPT-5 Nano
                         </td>
                         <td style="padding: 1rem; color: {color_eval}; font-weight: 500;">
