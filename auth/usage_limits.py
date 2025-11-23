@@ -12,6 +12,7 @@ import streamlit as st
 
 from auth.users import user_manager, User
 from backend import RateLimitError
+from db import get_db_connection
 
 logger = logging.getLogger(__name__)
 

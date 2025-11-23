@@ -9,14 +9,29 @@ DB_DIR = Path(__file__).parent / "data"
 DB_PATH = DB_DIR / "chat_history.db"
 
 
+def get_db_connection() -> sqlite3.Connection:
+    """Public function to get database connection."""
+    return _get_connection()
+
+
 def _get_connection() -> sqlite3.Connection:
-    """Return a cached SQLite connection."""
+    """Return a cached SQLite connection, reconnect if closed."""
     DB_DIR.mkdir(parents=True, exist_ok=True)
     conn = getattr(_get_connection, "_conn", None)
+    
+    # Check if connection is still valid
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1")
+        except (sqlite3.ProgrammingError, sqlite3.OperationalError):
+            # Connection is closed or invalid, reset it
+            conn = None
+    
     if conn is None:
         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         setattr(_get_connection, "_conn", conn)
+    
     return conn
 
 

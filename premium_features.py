@@ -4,8 +4,8 @@ Premium features only available to paying subscribers
 from __future__ import annotations
 
 import streamlit as st
-from auth.users import require_subscription, User
-from auth.usage_limits import check_usage_limit
+from auth.users import User
+from auth.usage_limits import require_subscription, check_usage_limit
 import openai
 import requests
 

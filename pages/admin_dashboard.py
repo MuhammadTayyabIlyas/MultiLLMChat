@@ -7,13 +7,15 @@ import streamlit as st
 import pandas as pd
 import time
 import json
-import plotly.graph_objects as go
 
 from admin.admin_auth import require_admin, get_admin_stats, get_user_details, make_admin, revoke_admin
-from auth.users import user_manager
-from billing.stripe_integration import billing_manager
 from backend import MODEL_REGISTRY, ProviderConfig, available_models
 from db import get_db_connection
+
+# Import billing manager lazily to avoid circular imports
+def get_billing_manager():
+    from billing.stripe_integration import billing_manager
+    return billing_manager
 
 
 def main():
@@ -207,7 +209,7 @@ def render_revenue():
     # Stripe status
     st.markdown("### 💳 Payment Processing")
     
-    if billing_manager.is_configured():
+    if get_billing_manager().is_configured():
         st.success("✅ Stripe is configured")
     else:
         st.error("❌ Stripe not configured")

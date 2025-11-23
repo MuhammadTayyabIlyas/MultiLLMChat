@@ -16,6 +16,11 @@ from db import (
 )
 from utils import format_human_timestamp, secure_session_id, serialize_messages, utc_now_iso
 
+# Import authentication
+from auth.users import user_manager
+from auth.usage_limits import check_usage_limit, record_user_usage, show_usage_widget
+from premium_features import render_premium_sidebar
+
 
 init_db()
 st.set_page_config(
@@ -257,48 +262,105 @@ def _inject_custom_css(dark_mode: bool) -> None:
     )
 
 
-def _require_auth() -> bool:
+def _require_auth():
+    """Check if user is authenticated, show auth interface if not"""
+    # Check if already authenticated (backward compatibility)
     if st.session_state.get("authenticated"):
         return True
-
-    # Modern login screen
+    
+    # Check if user is logged in with new auth system
+    if "user" in st.session_state:
+        return True
+    
+    # Show modern authentication interface
+    import time
+    import re
+    
+    from auth.users import user_manager
+    
+    # Header
     st.markdown(
         """
         <div style="text-align: center; padding: 3rem 0;">
             <h1 style="font-size: 3rem; margin-bottom: 0.5rem;">🤖</h1>
-            <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem;">AI Chat Studio</h1>
+            <h1 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem;">AI Chat Studio</h1>
             <p style="color: #8E8EA0; font-size: 1rem;">Multi-LLM Platform by Muhammad Tayyab ILYAS</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    
+    # Create tabs for Login and Sign Up
+    login_tab, signup_tab = st.tabs(["🔐 Login", "📝 Sign Up"])
+    
+    with login_tab:
         with st.form("login_form", clear_on_submit=True):
-            st.markdown("### 🔐 Welcome Back")
-            password = st.text_input("Enter your password", type="password", placeholder="Password")
+            email = st.text_input("Email", placeholder="your@email.com", 
+                                help="Enter your email address")
+            password = st.text_input("Password", type="password", placeholder="••••••••")
+            
             submitted = st.form_submit_button("Sign In", use_container_width=True, type="primary")
-
+            
             if submitted:
-                if password == APP_PASSWORD:
-                    st.session_state.authenticated = True
-                    st.session_state.user_id = secure_session_id()
-                    st.success("✅ Authenticated successfully!")
-                    st.rerun()
+                if not email or not password:
+                    st.error("Please enter both email and password")
                 else:
-                    st.error("❌ Incorrect password. Please try again.")
-
-        st.markdown(
-            """
-            <div style="text-align: center; margin-top: 2rem; padding: 1rem; background: rgba(94,99,255,0.1); border-radius: 0.5rem;">
-                <p style="color: #8E8EA0; font-size: 0.85rem; margin: 0;">
-                    🌟 Access 11 AI providers in one unified interface
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                    user = user_manager.authenticate(email, password)
+                    if user:
+                        st.session_state.user = user
+                        st.success("✅ Login successful!")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid email or password")
+    
+    with signup_tab:
+        with st.form("signup_form", clear_on_submit=True):
+            name = st.text_input("Full Name", placeholder="John Doe")
+            email = st.text_input("Email", placeholder="your@email.com")
+            password = st.text_input("Password", type="password", placeholder="Min. 8 characters")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            
+            submitted = st.form_submit_button("Create Account", use_container_width=True, type="primary")
+            
+            if submitted:
+                if not all([name, email, password, confirm_password]):
+                    st.error("Please fill in all fields")
+                elif len(password) < 8:
+                    st.error("Password must be at least 8 characters")
+                elif password != confirm_password:
+                    st.error("Passwords do not match")
+                else:
+                    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                    if not re.match(email_pattern, email):
+                        st.error("Please enter a valid email address")
+                        return
+                    
+                    existing = user_manager.get_user_by_email(email)
+                    if existing:
+                        st.error("Email already registered")
+                        return
+                    
+                    try:
+                        user = user_manager.create_user(email, password)
+                        st.session_state.user = user
+                        st.success("Account created!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed: {str(e)}")
+    
+    # Backward compatibility - legacy login
+    with st.expander("⚠️ Legacy Login"):
+        password = st.text_input("Legacy Password", type="password", key="legacy_pw")
+        if st.button("Legacy Login") and password == APP_PASSWORD:
+            user_id = secure_session_id()
+            st.session_state.user = type('User', (), {
+                'id': user_id, 'email': f'legacy-{user_id[:8]}@app.app',
+                'subscription_tier': 'pro'
+            })()
+            st.rerun()
+    
     return False
 
 
