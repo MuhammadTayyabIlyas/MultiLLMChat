@@ -51,7 +51,7 @@ def _inject_custom_css(dark_mode: bool) -> None:
             padding: 0;
         }}
 
-        /* Sidebar Styling */
+        /* Sidebar Styling - Visible by default, user can hide */
         section[data-testid="stSidebar"] {{
             background: {panel_bg};
             border-right: 1px solid {border_color};
@@ -60,6 +60,19 @@ def _inject_custom_css(dark_mode: bool) -> None:
 
         section[data-testid="stSidebar"] .block-container {{
             padding-top: 1rem;
+        }}
+
+        /* Make sidebar toggle button more visible */
+        button[kind="header"] {{
+            background: {panel_bg} !important;
+            border: 1px solid {border_color} !important;
+            border-radius: 0.5rem !important;
+            padding: 0.5rem !important;
+        }}
+
+        button[kind="header"]:hover {{
+            background: {color_a}20 !important;
+            border-color: #10A37F !important;
         }}
 
         /* Header */
@@ -230,10 +243,10 @@ def _inject_custom_css(dark_mode: bool) -> None:
             border-left: 4px solid #10A37F;
         }}
 
-        /* Hide Streamlit branding */
+        /* Hide Streamlit branding but keep header for sidebar toggle */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
-        header {{visibility: hidden;}}
+        /* Keep header visible for sidebar toggle button */
         </style>
         """,
         unsafe_allow_html=True,
