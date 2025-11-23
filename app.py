@@ -71,7 +71,7 @@ def _inject_custom_css(dark_mode: bool) -> None:
         }}
 
         button[kind="header"]:hover {{
-            background: {color_a}20 !important;
+            background: {user_color}20 !important;
             border-color: #10A37F !important;
         }}
 
