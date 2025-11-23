@@ -27,7 +27,7 @@ def is_admin(user: User) -> bool:
     row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user.id,)).fetchone()
     conn.close()
     
-    return bool(row and row.get("is_admin", False))
+    return bool(row and row[0])
 
 
 def require_admin():
