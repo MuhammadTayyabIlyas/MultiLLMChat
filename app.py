@@ -271,10 +271,10 @@ def _inject_custom_css(dark_mode: bool) -> None:
             border-left: 4px solid {user_color};
         }}
 
-        /* Hide Streamlit branding but keep header for sidebar toggle */
+        /* Hide Streamlit branding and sidebar toggle on login */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
-        /* Keep header visible for sidebar toggle button */
+        header {{visibility: hidden;}}
         </style>
         """,
         unsafe_allow_html=True,
@@ -297,67 +297,26 @@ def _require_auth():
     
     from auth.users import user_manager
     
-    # Hero section with gradient
-    st.markdown(
-        """
-        <div style="
-            text-align: center; 
-            padding: 4rem 2rem; 
-            background: linear-gradient(135deg, #0E1117 0%, #1E1E1E 100%);
-            border-radius: 1rem;
-            margin-bottom: 2rem;
-            border: 1px solid #404040;
-        ">
-            <div style="font-size: 5rem; margin-bottom: 1rem;">🤖</div>
-            <h1 style="
-                font-size: 3.5rem; 
-                font-weight: 800; 
-                margin-bottom: 1rem;
-                background: linear-gradient(135deg, #10A37F, #5E63FF);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-            ">AI Chat Studio</h1>
-            <p style="color: #8E8EA0; font-size: 1.2rem;">
-                Your gateway to 11+ premium AI models in one unified platform
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    
-    # Features showcase (only on login page)
-    st.markdown("### ✨ Why Choose AI Chat Studio?")
-    
-    col_feat1, col_feat2, col_feat3 = st.columns(3)
-    
-    with col_feat1:
-        st.markdown("""
-        <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚀</div>
-            <h4 style="margin-bottom: 0.5rem;">Lightning Fast</h4>
-            <p style="color: #8E8EA0; font-size: 0.9rem;">Access multiple AI models simultaneously</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_feat2:
-        st.markdown("""
-        <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚖️</div>
-            <h4 style="margin-bottom: 0.5rem;">Compare Models</h4>
-            <p style="color: #8E8EA0; font-size: 0.9rem;">Side-by-side comparison to find the best response</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_feat3:
-        st.markdown("""
-        <div style="text-align: center; padding: 1rem;">
-            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💾</div>
-            <h4 style="margin-bottom: 0.5rem;">Save History</h4>
-            <p style="color: #8E8EA0; font-size: 0.9rem;">Never lose your conversations with automatic saving</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
+    # Minimal logo header
+    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+    with col_logo2:
+        st.markdown(
+            """
+            <div style="text-align: center; padding: 1rem 0; margin-bottom: 2rem;">
+                <div style="font-size: 3rem; line-height: 1;">🤖</div>
+                <h1 style="
+                    font-size: 2rem; 
+                    font-weight: 600; 
+                    margin: 0;
+                    background: linear-gradient(135deg, #10A37F, #5E63FF);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    display: inline-block;
+                ">AI Studio</h1>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     
     # Authentication tabs
     login_tab, signup_tab = st.tabs(["🔐 **Login**", "📝 **Create Account**"])
