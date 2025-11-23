@@ -534,55 +534,38 @@ if message_to_send:
             st.error("One or both models not found.")
             st.stop()
 
-        # Side-by-side columns
-        col1, col2 = st.columns(2)
+        # Call both models (no streaming in comparison mode for better table display)
+        response_a = ""
+        response_b = ""
 
-        with col1:
-            st.markdown(f"### 🤖 {config_a.label}")
-            placeholder_a = st.empty()
-            collected_a: List[str] = []
+        with st.spinner(f"🤖 {config_a.label} is thinking..."):
+            try:
+                response_a = call_model(
+                    model_a_key,
+                    chat_history_for_llm,
+                    session_id=session_id,
+                    stream=False,
+                    on_token=None,
+                )
+            except RateLimitError as err:
+                st.error(str(err))
+                st.stop()
 
-            def on_token_a(chunk: str) -> None:
-                collected_a.append(chunk)
-                placeholder_a.markdown("".join(collected_a))
+        with st.spinner(f"🤖 {config_b.label} is thinking..."):
+            try:
+                response_b = call_model(
+                    model_b_key,
+                    chat_history_for_llm,
+                    session_id=session_id,
+                    stream=False,
+                    on_token=None,
+                )
+            except RateLimitError as err:
+                st.error(str(err))
+                st.stop()
 
-        with col2:
-            st.markdown(f"### 🤖 {config_b.label}")
-            placeholder_b = st.empty()
-            collected_b: List[str] = []
-
-            def on_token_b(chunk: str) -> None:
-                collected_b.append(chunk)
-                placeholder_b.markdown("".join(collected_b))
-
-        # Call both models
-        try:
-            response_a = call_model(
-                model_a_key,
-                chat_history_for_llm,
-                session_id=session_id,
-                stream=st.session_state["stream_response"],
-                on_token=on_token_a if st.session_state["stream_response"] else None,
-            )
-            response_b = call_model(
-                model_b_key,
-                chat_history_for_llm,
-                session_id=session_id,
-                stream=st.session_state["stream_response"],
-                on_token=on_token_b if st.session_state["stream_response"] else None,
-            )
-        except RateLimitError as err:
-            st.error(str(err))
-            st.stop()
-
-        if not st.session_state["stream_response"]:
-            placeholder_a.markdown(response_a)
-            placeholder_b.markdown(response_b)
-
-        # GPT-4o-mini Evaluation
-        st.markdown("---")
-        st.markdown("### 🎯 AI Evaluation")
-        with st.spinner("Evaluating responses..."):
+        # GPT-5 nano Evaluation
+        with st.spinner("🎯 Evaluating responses..."):
             evaluation = evaluate_responses(
                 message_to_send,
                 response_a,
@@ -591,7 +574,60 @@ if message_to_send:
                 config_b.label,
             )
 
-        st.info(f"**{evaluation}**")
+        # Display in Table Format with Color Coding
+        dark_mode = st.session_state.get("dark_mode", True)
+
+        if dark_mode:
+            color_a = "#10A37F"  # Green for Model A
+            color_b = "#5E63FF"  # Blue for Model B
+            color_eval = "#FF6B6B"  # Red for Evaluator
+            bg_color = "#1E1E1E"
+            text_color = "#ECECF1"
+        else:
+            color_a = "#0D8A6A"
+            color_b = "#4A4FCC"
+            color_eval = "#CC5555"
+            bg_color = "#FFFFFF"
+            text_color = "#1F1F1F"
+
+        st.markdown(f"""
+        <div style="margin: 1rem 0;">
+            <table style="width: 100%; border-collapse: collapse; background: {bg_color}; border-radius: 0.5rem; overflow: hidden;">
+                <thead>
+                    <tr style="background: linear-gradient(135deg, {color_a}20, {color_b}20);">
+                        <th style="padding: 1rem; text-align: left; color: {text_color}; font-weight: 600; border-bottom: 2px solid {color_a};">Model</th>
+                        <th style="padding: 1rem; text-align: left; color: {text_color}; font-weight: 600; border-bottom: 2px solid {color_b};">Response</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_a}; color: {color_a}; font-weight: 600;">
+                            🤖 {config_a.label}
+                        </td>
+                        <td style="padding: 1rem; color: {text_color}; border-bottom: 1px solid #404040;">
+                            {response_a}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_b}; color: {color_b}; font-weight: 600;">
+                            🤖 {config_b.label}
+                        </td>
+                        <td style="padding: 1rem; color: {text_color}; border-bottom: 1px solid #404040;">
+                            {response_b}
+                        </td>
+                    </tr>
+                    <tr style="background: {color_eval}10;">
+                        <td style="padding: 1rem; vertical-align: top; border-left: 4px solid {color_eval}; color: {color_eval}; font-weight: 600;">
+                            🎯 GPT-5 Nano
+                        </td>
+                        <td style="padding: 1rem; color: {color_eval}; font-weight: 500;">
+                            {evaluation}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
 
         # Save messages
         timestamp = utc_now_iso()

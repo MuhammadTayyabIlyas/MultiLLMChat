@@ -510,7 +510,7 @@ def evaluate_responses(
 ) -> str:
     """
     Uses GPT-5 nano to evaluate which response is better.
-    Returns a brief evaluation (max 30 words).
+    Returns a brief evaluation (max 15 words).
     """
     api_key = _secret("OPENAI_API_KEY")
     if not api_key:
@@ -531,7 +531,7 @@ Response 1 ({model_a_name}):
 Response 2 ({model_b_name}):
 {response_b}
 
-Which response is better? Reply ONLY with: "Answer 1 is better: [reason]" or "Answer 2 is better: [reason]". Keep reason under 20 words."""
+Which response is better? Reply in EXACTLY 15 words or less: "Answer 1 is better: [reason]" or "Answer 2 is better: [reason]"."""
 
     try:
         response = client.responses.create(
@@ -539,10 +539,10 @@ Which response is better? Reply ONLY with: "Answer 1 is better: [reason]" or "An
             input=evaluation_prompt
         )
         evaluation = response.output_text or "Unable to evaluate."
-        # Ensure it's under 30 words
+        # Strictly enforce 15 word limit
         words = evaluation.strip().split()
-        if len(words) > 30:
-            evaluation = " ".join(words[:30]) + "..."
+        if len(words) > 15:
+            evaluation = " ".join(words[:15]) + "..."
         return evaluation
     except Exception as exc:
         logger.exception("Evaluation failed: %s", exc)
