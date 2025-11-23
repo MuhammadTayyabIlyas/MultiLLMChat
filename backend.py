@@ -186,35 +186,64 @@ def call_gemini(
         return "Google Generative AI SDK missing. Install `google-generativeai`."
 
     genai.configure(api_key=api_key)
-    prompt = "\n".join(f"{msg['role'].title()}: {msg['content']}" for msg in messages)
+    
+    # Build a more structured prompt for Gemini
+    prompt_parts = []
+    for msg in messages:
+        if msg["role"] == "user":
+            prompt_parts.append(f"User: {msg['content']}")
+        elif msg["role"] == "assistant":
+            prompt_parts.append(f"Assistant: {msg['content']}")
+        elif msg["role"] == "system":
+            prompt_parts.append(f"System: {msg['content']}")
+    
+    prompt = "\n\n".join(prompt_parts) + "\n\nAssistant:"
+    
     try:
         model_client = genai.GenerativeModel(f"models/{model}")
         response = model_client.generate_content(
             prompt,
-            generation_config={"temperature": temperature, "max_output_tokens": 32000},
+            generation_config={
+                "temperature": temperature,
+                "max_output_tokens": 32000,
+                "stop_sequences": ["User:"]  # Prevent the model from continuing the conversation
+            },
             request_options={"timeout": API_TIMEOUT},
         )
 
-        candidates = getattr(response, "candidates", [])
-        if not candidates:
+        # Better error handling and debugging info
+        if not hasattr(response, 'candidates') or not response.candidates:
             finish_reason = getattr(response, "prompt_feedback", None)
-            return f"Gemini: No candidates returned. Feedback: {finish_reason}"
+            safety_ratings = getattr(response, "prompt_feedback", None)
+            error_msg = "Gemini: No response generated."
+            if finish_reason:
+                error_msg += f" Reason: {finish_reason}"
+            if safety_ratings:
+                error_msg += f" Safety: {safety_ratings}"
+            return error_msg
 
         parts: List[str] = []
-        for candidate in candidates:
-            content = getattr(candidate, "content", None)
-            if not content:
-                continue
-            for part in getattr(content, "parts", []) or []:
-                snippet = getattr(part, "text", None)
-                if snippet:
-                    parts.append(snippet.strip())
+        for candidate in response.candidates:
+            if hasattr(candidate, 'content') and candidate.content:
+                for part in candidate.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        parts.append(part.text.strip())
 
-        text = "\n\n".join(parts) if parts else f"Gemini returned empty response. Candidates: {len(candidates)}"
+        text = "\n\n".join(parts) if parts else "Gemini returned empty response."
         return emit_or_collect(text, stream, on_token)
     except Exception as exc:
         logger.exception("Gemini call failed: %s", exc)
-        return "Gemini provider error — please retry."
+        error_details = str(exc)
+        if "API_KEY_INVALID" in error_details:
+            return "Gemini error: Invalid API key. Please check your GEMINI_API_KEY."
+        elif "USER_LOCATION" in error_details:
+            return "Gemini error: Location not supported. Some regions are restricted."
+        elif "SAFETY" in error_details:
+            return "Gemini error: Request blocked by safety filters."
+        elif "RATE_LIMIT" in error_details or "ResourceExhausted" in error_details:
+            return "Gemini rate limit exceeded. Please wait a moment and retry."
+        else:
+            return "Gemini provider error — please retry."
 
 
 def call_qwen(
