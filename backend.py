@@ -172,7 +172,7 @@ def call_anthropic(
 def call_gemini(
     messages: List[Dict[str, str]],
     *,
-    model: str = "gemini-1.5-pro-latest",
+    model: str = "gemini-2.0-flash-lite",
     temperature: float = 0.2,
     stream: bool = False,
     on_token=None,
@@ -444,11 +444,11 @@ MODEL_REGISTRY: Dict[str, ProviderConfig] = {
         secret="ANTHROPIC_API_KEY",
         handler=call_anthropic,
     ),
-    "gemini-1.5-pro": ProviderConfig(
-        key="gemini-1.5-pro",
-        label="Google · Gemini 1.5 Pro Latest",
+    "gemini-2.0-flash-lite": ProviderConfig(
+        key="gemini-2.0-flash-lite",
+        label="Google · Gemini 2.0 Flash Lite",
         provider="gemini",
-        model="gemini-1.5-pro-latest",
+        model="gemini-2.0-flash-lite",
         secret="GEMINI_API_KEY",
         handler=call_gemini,
     ),
