@@ -51,15 +51,28 @@ def _inject_custom_css(dark_mode: bool) -> None:
             padding: 0;
         }}
 
-        /* Sidebar Styling */
+        /* Sidebar Styling - Force Always Visible */
         section[data-testid="stSidebar"] {{
             background: {panel_bg};
             border-right: 1px solid {border_color};
             padding: 2rem 1rem;
+            min-width: 21rem !important;
+            transform: none !important;
         }}
 
         section[data-testid="stSidebar"] .block-container {{
             padding-top: 1rem;
+        }}
+
+        /* Ensure sidebar is never collapsed */
+        section[data-testid="stSidebar"][aria-expanded="false"] {{
+            transform: none !important;
+            margin-left: 0 !important;
+        }}
+
+        /* Hide collapse button */
+        button[kind="header"] {{
+            display: none !important;
         }}
 
         /* Header */
