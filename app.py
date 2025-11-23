@@ -30,12 +30,24 @@ except ImportError:
 
 
 init_db()
-st.set_page_config(
-    page_title="AI Chat Studio | Multi-LLM Platform",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
+# Set page config conditionally (centered for login, wide for app)
+if "user" not in st.session_state:
+    # Login page - hide sidebar and use centered layout
+    st.set_page_config(
+        page_title="AI Chat Studio | Login",
+        page_icon="🤖",
+        layout="centered",
+        initial_sidebar_state="collapsed"
+    )
+else:
+    # Main app
+    st.set_page_config(
+        page_title="AI Chat Studio | Multi-LLM Platform",
+        page_icon="🤖",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
 APP_PASSWORD = st.secrets.get("APP_PASSWORD")
 if not APP_PASSWORD:
@@ -285,20 +297,70 @@ def _require_auth():
     
     from auth.users import user_manager
     
-    # Header
+    # Hero section with gradient
     st.markdown(
         """
-        <div style="text-align: center; padding: 3rem 0;">
-            <h1 style="font-size: 3rem; margin-bottom: 0.5rem;">🤖</h1>
-            <h1 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem;">AI Chat Studio</h1>
-            <p style="color: #8E8EA0; font-size: 1rem;">Multi-LLM Platform by Muhammad Tayyab ILYAS</p>
+        <div style="
+            text-align: center; 
+            padding: 4rem 2rem; 
+            background: linear-gradient(135deg, #0E1117 0%, #1E1E1E 100%);
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            border: 1px solid #404040;
+        ">
+            <div style="font-size: 5rem; margin-bottom: 1rem;">🤖</div>
+            <h1 style="
+                font-size: 3.5rem; 
+                font-weight: 800; 
+                margin-bottom: 1rem;
+                background: linear-gradient(135deg, #10A37F, #5E63FF);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            ">AI Chat Studio</h1>
+            <p style="color: #8E8EA0; font-size: 1.2rem;">
+                Your gateway to 11+ premium AI models in one unified platform
+            </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
     
-    # Create tabs for Login and Sign Up
-    login_tab, signup_tab = st.tabs(["🔐 Login", "📝 Sign Up"])
+    # Features showcase (only on login page)
+    st.markdown("### ✨ Why Choose AI Chat Studio?")
+    
+    col_feat1, col_feat2, col_feat3 = st.columns(3)
+    
+    with col_feat1:
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚀</div>
+            <h4 style="margin-bottom: 0.5rem;">Lightning Fast</h4>
+            <p style="color: #8E8EA0; font-size: 0.9rem;">Access multiple AI models simultaneously</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_feat2:
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚖️</div>
+            <h4 style="margin-bottom: 0.5rem;">Compare Models</h4>
+            <p style="color: #8E8EA0; font-size: 0.9rem;">Side-by-side comparison to find the best response</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_feat3:
+        st.markdown("""
+        <div style="text-align: center; padding: 1rem;">
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💾</div>
+            <h4 style="margin-bottom: 0.5rem;">Save History</h4>
+            <p style="color: #8E8EA0; font-size: 0.9rem;">Never lose your conversations with automatic saving</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Authentication tabs
+    login_tab, signup_tab = st.tabs(["🔐 **Login**", "📝 **Create Account**"])
     
     with login_tab:
         with st.form("login_form", clear_on_submit=True):
@@ -385,20 +447,22 @@ if "stream_response" not in st.session_state:
 
 _inject_custom_css(st.session_state["dark_mode"])
 
-# App Header
-st.markdown(
-    """
-    <div class="app-header">
-        <div class="app-title">🤖 AI Chat Studio</div>
-        <div class="app-subtitle">Powered by 11 Leading AI Models | Built by Muhammad Tayyab ILYAS</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# App Header (only show when authenticated)
+if "user" in st.session_state:
+    st.markdown(
+        """
+        <div class="app-header">
+            <div class="app-title">🤖 AI Chat Studio</div>
+            <div class="app-subtitle">Powered by 11 Leading AI Models | Built by Muhammad Tayyab ILYAS</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-# Sidebar Configuration
-with st.sidebar:
-    st.markdown("### ⚙️ Settings")
+# Sidebar Configuration (only when authenticated)
+if "user" in st.session_state:
+    with st.sidebar:
+        st.markdown("### ⚙️ Settings")
 
     # Model Selection
     models = available_models()
