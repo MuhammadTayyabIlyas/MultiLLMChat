@@ -13,6 +13,9 @@ groq==0.36.0
 # Payment Processing
 stripe==11.4.1
 
+# Session Management (for persistent login)
+extra-streamlit-components==0.1.81
+
 # Utilities
 python-dotenv==1.2.1
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 import streamlit as st
 
@@ -17,22 +17,26 @@ from db import (
 from utils import format_human_timestamp, secure_session_id, serialize_messages, utc_now_iso
 
 # Import authentication
-from auth.users import user_manager
+from auth.users import user_manager, User
 from auth.usage_limits import check_usage_limit, record_user_usage, show_usage_widget
+from auth.session_manager import session_manager
 from premium_features import render_premium_sidebar
 
 # Import admin check (will be used for showing admin section)
 try:
     from admin.admin_auth import is_admin
 except ImportError:
-    def is_admin(user):
+    def is_admin(user: Optional[User]):
         return False
 
 
 init_db()
 
-# Set page config conditionally (centered for login, wide for app)
-if "user" not in st.session_state:
+# Get current user from session (cookie-based persistence)
+current_user = session_manager.get_current_user()
+
+# Set page config based on authentication
+if current_user is None:
     # Login page - hide sidebar and use centered layout
     st.set_page_config(
         page_title="AI Chat Studio | Login",
@@ -48,6 +52,10 @@ else:
         layout="wide",
         initial_sidebar_state="expanded"
     )
+
+# Store user for easy access throughout the app
+if current_user:
+    st.session_state.user = current_user
 
 APP_PASSWORD = st.secrets.get("APP_PASSWORD")
 if not APP_PASSWORD:
@@ -320,12 +328,12 @@ def _inject_custom_css(dark_mode: bool) -> None:
 
 def _require_auth():
     """Check if user is authenticated, show auth interface if not"""
-    # Check if already authenticated (backward compatibility)
-    if st.session_state.get("authenticated"):
-        return True
+    # Get current user from session manager (cookie-based persistence)
+    current_user = session_manager.get_current_user()
     
-    # Check if user is logged in with new auth system
-    if "user" in st.session_state:
+    if current_user is not None:
+        # User is authenticated
+        st.session_state.user = current_user  # Ensure it's in session state
         return True
     
     # Show modern authentication interface
@@ -372,7 +380,8 @@ def _require_auth():
                 else:
                     user = user_manager.authenticate(email, password)
                     if user:
-                        st.session_state.user = user
+                        # Create persistent session with cookie
+                        session_manager.create_session(user)
                         st.success("✅ Login successful!")
                         time.sleep(0.5)
                         st.rerun()
@@ -408,7 +417,8 @@ def _require_auth():
                     
                     try:
                         user = user_manager.create_user(email, password)
-                        st.session_state.user = user
+                        # Create persistent session with cookie
+                        session_manager.create_session(user)
                         st.success("Account created!")
                         time.sleep(1)
                         st.rerun()
@@ -420,10 +430,12 @@ def _require_auth():
         password = st.text_input("Legacy Password", type="password", key="legacy_pw")
         if st.button("Legacy Login") and password == APP_PASSWORD:
             user_id = secure_session_id()
-            st.session_state.user = type('User', (), {
+            # Create a legacy user with session
+            legacy_user = type('User', (), {
                 'id': user_id, 'email': f'legacy-{user_id[:8]}@app.app',
                 'subscription_tier': 'pro'
             })()
+            session_manager.create_session(legacy_user)
             st.rerun()
     
     return False
@@ -612,8 +624,8 @@ if "user" in st.session_state:
 
     # Logout
     if st.button("🚪 Sign Out", use_container_width=True, type="primary"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        # Clear session using session manager (also deletes cookie)
+        session_manager.clear_session()
         st.rerun()
 
     # Sidebar Footer
