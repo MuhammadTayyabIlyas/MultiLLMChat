@@ -23,6 +23,11 @@ class User:
     created_at: int = 0
     last_login: int = 0
     api_key: Optional[str] = None  # For API access
+    password_hash: Optional[str] = None  # For user authentication
+    is_admin: bool = False  # For admin privileges
+    reset_token: Optional[str] = None  # For password reset
+    reset_token_expiry: int = 0  # Token expiration timestamp
+    created_by: Optional[str] = None  # For team management
 
 
 class UserManager:
